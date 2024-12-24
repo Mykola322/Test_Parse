@@ -1,9 +1,10 @@
-from flask import Flask, render_template
+from flask import Flask, render_template, request, redirect, url_for
 
 from data.weather import get_weather
 from data.base import create_db
 from data.models import Pizza, Ingredient
-
+from data.base import Session
+from data import functions
 
 app = Flask(__name__)
 
@@ -22,9 +23,33 @@ def index():
     else:
         pizza_recom = "Грибна пиця"
 
+    with Session() as session:
+        pizzas = session.query(Pizza).all()
+
     return render_template("index.html", weather=weather, pizza_recom=pizza_recom)
 
 
+@app.get("/poll/")
+def poll():
+    with Session() as session:
+        pizzas = session.query(Pizza).all()
+        return render_template("poll.html", pizzas=pizzas)
+
+
+@app.get("/add_vote/")
+def add_vote():
+    pizza = request.args.get("vote")
+    if not pizza:
+        return redirect(url_for(poll))
+
+    functions.write_file(pizza)
+    return redirect(url_for("results"))
+
+
+@app.get("/results/")
+def results():
+    answers = functions.read_file()
+    return render_template("results.html", answers=answers)
 
 if __name__ == "__main__":
     create_db()
